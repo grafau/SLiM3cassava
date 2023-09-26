@@ -1,0 +1,63 @@
+// set up a simple neutral simulation
+initialize() {
+	initializeTreeSeq();
+	initializeMutationRate(0);
+	
+	// m1 mutation type: neutral
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	
+	// g1 genomic element type: uses m1 for all mutations
+	initializeGenomicElementType("g1", m1, 1.0);
+	
+	// two uniform chromosomes of length 20Mb with uniform recombination
+	initializeGenomicElement(g1, 0, 100000000);
+	initializeRecombinationRate(c(1e-8,0.5,1e-8,0.5,1e-8,0.5,1e-8,0.5,1e-8),c(19999999,20000000,39999999,40000000,59999999,60000000,79999999,80000000,100000000));
+	
+	// generate burn-in ID, burn-in switch, and Ne parameters (1%,5%,10%,'no' bottleneck | 50%, 100%, 200% expansion)
+	defineConstant("simID", getSeed());
+	defineGlobal("switch", 0);
+	defineConstant("minNe", c(100,500,1000,10000,100,500,1000,10000,100,500,1000,10000));
+	defineConstant("maxNe", c(5000,5000,5000,5000,10000,10000,10000,10000,20000,20000,20000,20000));
+}
+
+// create a wild burn-in population of 10000 individuals
+1 early() {
+	sim.addSubpop("p1", 10000);
+}
+
+// Run 10N burn-in, which is 100,000 generations
+// save the burn-in population
+99999 late() {
+	sim.outputFull(DIR + "/trees/yscln_seed_" + simID + ".txt");
+}
+
+// simulate domestication, strength of the bottlneck will be determined here. Should it be cloning already?
+100000 early() {
+	p1.setSubpopulationSize(minNe[switch]);
+	p1.setCloningRate(0.99);
+}
+
+// population growth
+
+100001 early() {
+	p1.setSubpopulationSize(maxNe[switch]);
+}
+
+
+// output the mutations in vcf file (for subsampled 500 indviduals) and go back to burn-in population for another parameter
+
+105000 late() {
+	// output trees for thw whole simulation
+	switch = switch +1;
+	sim.treeSeqOutput(path= DIR + "/trees/yscln_" + switch + ".trees", simplify= T);
+	// switch
+	if (switch < 12) {
+		cat("RAN " + switch + ": CHANGING PARAMETERS\n");
+		sim.readFromPopulationFile(DIR + "/trees/yscln_seed_" + simID + ".txt");
+	}
+	else {
+		print(simID);
+	}
+}
+
+
